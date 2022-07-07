@@ -1,10 +1,9 @@
 import { Injectable, Logger } from "@nestjs/common";
 import Ajv from "ajv/dist/jtd";
-import { plainToInstance } from "class-transformer";
 import * as fs from "fs";
-import path from "path";
+import * as path from "path";
 import { env } from "process";
-import { DeviceConfig, DevicesConfig, devicesConfigSchema, StateConfig } from "shared";
+import { DeviceConfig, DevicesConfig, devicesConfigSchema } from "shared";
 
 @Injectable()
 export class ConfigService {
@@ -17,74 +16,116 @@ export class ConfigService {
 
   private _devices?: DevicesConfig;
 
-  public get devices(): DevicesConfig {
-    if (this.devices === undefined) throw "Device config is not initialized!";
-    return this.devices;
+  private get configFolderPath(): string {
+    return path.resolve(env[ConfigService.configPathEnvVarName] ?? "./config/");
   }
 
-  load(shouldExist = false): boolean {
-    if (!fs.existsSync(this.getDevicesConfigPath())) {
+  private get devicesConfigPath(): string {
+    return path.resolve(path.join(this.configFolderPath, "devices.json"));
+  }
+
+  public get devices(): DevicesConfig {
+    if (this._devices === undefined) throw "Device config is not initialized!";
+    return this._devices;
+  }
+
+  load(shouldExist = false): void {
+    this.logger.log("Loading config");
+
+    // save default config if doesn't exist
+    if (!fs.existsSync(this.devicesConfigPath)) {
+      this.logger.warn(`Config at ${this.devicesConfigPath} doesn't exist!`);
       if (shouldExist) {
-        this.logger.error(`Config at ${this.getDevicesConfigPath()} doesn't exist after saving!`);
-        return false;
+        throw `Config at ${this.devicesConfigPath} doesn't exist after saving!`;
       }
 
+      this.logger.log("Saving default config");
+      this.loadDefaultConfig();
       this.save();
       this.load(true);
+      return;
     }
 
-    const devices = this.devicesConfigParser(fs.readFileSync(this.getDevicesConfigPath(), "utf-8"));
+    const devices = this.devicesConfigParser(fs.readFileSync(this.devicesConfigPath, "utf-8"));
     if (devices === undefined) {
       this.logger.error(`Invalid devices config: ${this.devicesConfigParser.message}`);
-      return false;
+      this.renameInvalidConfig();
+      return;
     }
 
-    if (!ConfigService.checkConfig(devices)) {
-      this.logger.error("Invalid config!");
-      return false;
+    const errorMessage = ConfigService.checkConfig(devices);
+    if (errorMessage !== undefined) {
+      this.logger.error(`Invalid devices config: ${errorMessage}`);
+      this.renameInvalidConfig();
+      return;
     }
 
+    this.logger.log("Loaded config");
     this._devices = devices;
-
-    return true;
   }
 
-  save() {
-    if (!ConfigService.checkConfig(this.devices)) {
-      throw "Invalid config detected before saving!";
+  save(): void {
+    this.logger.log("Saving config");
+    const errorMessage = ConfigService.checkConfig(this.devices);
+    if (errorMessage !== undefined) {
+      throw `Invalid config: ${errorMessage}`;
     }
 
-    fs.writeFileSync(this.getDevicesConfigPath(), JSON.stringify(this.devices));
+    if (!fs.existsSync(this.configFolderPath)) {
+      fs.mkdirSync(this.configFolderPath);
+    }
+
+    fs.writeFileSync(this.devicesConfigPath, JSON.stringify(this.devices, undefined, 2), { flag: "w" });
   }
 
-  getDevice(id: string): DeviceConfig | undefined {
-    return this.devices.devices.find((device) => device.id === id);
+  getDevice(id: string): DeviceConfig {
+    const device = this.devices.devices.find((device) => device.id === id);
+    if (device === undefined) throw `Unkown device ${id}!`;
+    return device;
   }
 
-  private getConfigPath() {
-    return env[ConfigService.configPathEnvVarName] ?? "./config/";
-  }
-
-  private getDevicesConfigPath() {
-    return path.join(this.getConfigPath(), "devices.json");
-  }
-
-  private loadDefaultConfig() {
-    this._devices = {
+  private loadDefaultConfig(): void {
+    const defaultConfig = {
       devices: [
         {
           id: "tasmota-1",
           type: "tasmota-relais",
           name: "Tastmota Socket 1",
           address: "192.168.2.21",
-          states: [{ id: "on", name: "An", toggledId: "off", imageUrl: "/static/images/light-on.png" }],
+          states: [
+            {
+              id: "unknown",
+              name: "Unbekannt",
+              toggledId: "off",
+              imageUrl: "/static/images/unknown.png",
+            },
+            {
+              id: "on",
+              name: "An",
+              toggledId: "off",
+              imageUrl: "/static/images/light-on.png",
+            },
+          ],
           defaultState: "unknown",
         },
       ],
     };
+
+    const errorMessage = ConfigService.checkConfig(defaultConfig);
+    if (errorMessage !== undefined) {
+      throw `Invalid default config: ${errorMessage}`;
+    }
+    this._devices = defaultConfig;
   }
 
-  private static checkConfig(devicesConfig: DevicesConfig): true | string {
+  private renameInvalidConfig() {
+    const renamedConfig = `${this.devicesConfigPath}.old`;
+    this.logger.warn(`Renaming current invalid config to ${renamedConfig}`);
+    fs.renameSync(this.devicesConfigPath, renamedConfig);
+    this.load(false);
+  }
+
+  private static checkConfig(devicesConfig: DevicesConfig): string | undefined {
     const deviceIds = devicesConfig.devices.map((device) => device.id);
     const deviceIdsAreUnique = deviceIds.length === new Set(deviceIds).size;
     if (!deviceIdsAreUnique) return `Device IDs are not unique!`;
@@ -98,6 +139,6 @@ export class ConfigService {
     const defaultStateDoesntExist = devicesConfig.devices.filter((device) => device.defaultState! in device.states);
     if (defaultStateDoesntExist.length !== 0) return `The following device(s) don't have a known default state: ${defaultStateDoesntExist.join(", ")}`;
 
-    return true;
+    return undefined;
   }
 }
