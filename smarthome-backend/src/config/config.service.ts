@@ -3,7 +3,7 @@ import Ajv from "ajv/dist/jtd";
 import * as fs from "fs";
 import * as path from "path";
 import { env } from "process";
-import { DeviceConfig, DevicesConfig, devicesConfigSchema } from "shared";
+import { DeviceConfig, DevicesConfig, devicesConfigSchema, deviceTypes, StateConfig } from "shared";
 
 @Injectable()
 export class ConfigService {
@@ -84,6 +84,10 @@ export class ConfigService {
     return device;
   }
 
+  getState(device: DeviceConfig, id: string): StateConfig | undefined {
+    return device.states.find((state) => state.id === id);
+  }
+
   private loadDefaultConfig(): void {
     const defaultConfig = {
       devices: [
@@ -131,6 +135,9 @@ export class ConfigService {
     if (!deviceIdsAreUnique) return `Device IDs are not unique!`;
 
     for (const device of devicesConfig.devices) {
+      if (device.type! in Object.values(deviceTypes)) {
+        return `Device ${device.id} has an unknown type: ${device.type}`;
+      }
       const stateIds = device.states.map((state) => state.id);
       const stateIdsAreUnique = stateIds.length === new Set(stateIds).size;
       if (!stateIdsAreUnique) return `State IDs for device ${device.id} are not unique!`;

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { DeviceDto, StateDto } from "shared";
+import { DeviceConfig, DeviceDto, deviceTypes, StateConfig, StateDto } from "shared";
 import { ConfigService } from "src/config/config.service";
 
 @Injectable()
@@ -34,7 +34,9 @@ export class DevicesService {
 
   updateState(deviceId: string, stateId: string): void {
     const device = this.config.getDevice(deviceId);
-    if (!(stateId in device.states)) throw `Unknown state ${stateId} for device ${deviceId}!`;
+
+    const state = this.config.getState(device, stateId);
+    if (state === undefined) throw `Unkown state ${stateId} for device ${device.id}!`;
 
     this.logger.log(`Updating state of device ${deviceId} to ${stateId}`);
 
@@ -43,6 +45,20 @@ export class DevicesService {
       return;
     }
 
+    const success = this.updateStateInternal(device, state);
+
     this.states[deviceId] = stateId;
   }
+
+  private updateStateInternal(device: DeviceConfig, state: StateConfig): boolean {
+    switch (device.type) {
+      case deviceTypes.tasmotaRelais:
+        return this.updateTasmotaRelais(device, state);
+
+      default:
+        throw `Unkown device type ${device.type} for device ${device.id}!`;
+    }
+  }
+
+  private updateTasmotaRelais(device: DeviceConfig, state: StateConfig): boolean {}
 }
