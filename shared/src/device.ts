@@ -2,6 +2,11 @@ import { JTDSchemaType } from "ajv/dist/jtd";
 import { Identifiable } from "./identifiable";
 import { StateConfig, stateConfigSchema, StateDto, stateDtoSchema } from "./state";
 
+export const deviceTypes = {
+  tasmotaRelais: "tasmotaRelais",
+  tasmotaRfBridge: "tasmotaRfBridge",
+};
+
 export interface DeviceDto {
   readonly id: string;
   readonly type: string;
