@@ -46,7 +46,8 @@ export class ConfigService {
       return;
     }
 
-    const devices = this.devicesConfigParser(fs.readFileSync(this.devicesConfigPath, "utf-8"));
+    const devicesJson = fs.readFileSync(this.devicesConfigPath, "utf-8");
+    const devices = this.devicesConfigParser(devicesJson);
     if (devices === undefined) {
       this.logger.error(`Invalid devices config: ${this.devicesConfigParser.message}`);
       this.renameInvalidConfig();
@@ -135,7 +136,8 @@ export class ConfigService {
     if (!deviceIdsAreUnique) return `Device IDs are not unique!`;
 
     for (const device of devicesConfig.devices) {
-      if (device.type! in Object.values(deviceTypes)) {
+      const deviceTypeExsits = device.type in Object.values(deviceTypes);
+      if (!deviceTypeExsits) {
         return `Device ${device.id} has an unknown type: ${device.type}`;
       }
       const stateIds = device.states.map((state) => state.id);
@@ -143,7 +145,7 @@ export class ConfigService {
       if (!stateIdsAreUnique) return `State IDs for device ${device.id} are not unique!`;
     }
 
-    const defaultStateDoesntExist = devicesConfig.devices.filter((device) => device.defaultState! in device.states);
+    const defaultStateDoesntExist = devicesConfig.devices.filter((device) => !(device.defaultState in device.states));
     if (defaultStateDoesntExist.length !== 0) return `The following device(s) don't have a known default state: ${defaultStateDoesntExist.join(", ")}`;
 
     return undefined;
