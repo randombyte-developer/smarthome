@@ -123,7 +123,7 @@ export class ConfigService {
     this._devices = defaultConfig;
   }
 
-  private renameInvalidConfig() {
+  private renameInvalidConfig(): void {
     const renamedConfig = `${this.devicesConfigPath}.old`;
     this.logger.warn(`Renaming current invalid config to ${renamedConfig}`);
     fs.renameSync(this.devicesConfigPath, renamedConfig);

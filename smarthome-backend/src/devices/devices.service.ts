@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { DeviceConfig, DeviceDto, deviceTypes, StateConfig, StateDto } from "shared";
 import { ConfigService } from "src/config/config.service";
+import { TasmotaService } from "src/tasmota/tasmota.service";
 
 @Injectable()
 export class DevicesService {
@@ -8,7 +9,7 @@ export class DevicesService {
 
   private readonly states: { [deviceId: string]: string } = {};
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(private readonly config: ConfigService, private readonly tasmota: TasmotaService) {}
 
   getAll(): DeviceDto[] {
     return this.config.devices.devices.flatMap((deviceConfig) => {
@@ -32,7 +33,7 @@ export class DevicesService {
     return { id: state.id, name: state.name, imageUrl: state.imageUrl };
   }
 
-  updateState(deviceId: string, stateId: string): void {
+  async updateState(deviceId: string, stateId: string): Promise<void> {
     const device = this.config.getDevice(deviceId);
 
     const state = this.config.getState(device, stateId);
@@ -45,20 +46,24 @@ export class DevicesService {
       return;
     }
 
-    const success = this.updateStateInternal(device, state);
+    const success = await this.updateStateInternal(device, state);
 
+    if (!success) {
+      this.logger.warn(`Can't update state of device ${deviceId} to ${stateId}!`);
+      return;
+    }
+
+    this.logger.log(`Updated state of device ${deviceId} to ${stateId}`);
     this.states[deviceId] = stateId;
   }
 
-  private updateStateInternal(device: DeviceConfig, state: StateConfig): boolean {
+  private updateStateInternal(device: DeviceConfig, state: StateConfig): Promise<boolean> {
     switch (device.type) {
       case deviceTypes.tasmotaRelais:
-        return this.updateTasmotaRelais(device, state);
+        return this.tasmota.sendPowerCommand(device.address, state.id);
 
       default:
         throw `Unkown device type ${device.type} for device ${device.id}!`;
     }
   }
-
-  private updateTasmotaRelais(device: DeviceConfig, state: StateConfig): boolean {}
 }
