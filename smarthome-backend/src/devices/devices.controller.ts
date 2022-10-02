@@ -1,5 +1,5 @@
-import { Controller, Get } from "@nestjs/common";
-import { DeviceDto } from "shared";
+import { Controller, Get, Post } from "@nestjs/common";
+import { DeviceDto, deviceTypes } from "shared";
 import { ConfigService } from "src/config/config.service";
 import { DevicesService } from "./devices.service";
 
@@ -11,4 +11,7 @@ export class DevicesController {
   get(): DeviceDto[] {
     return this.devices.getAll();
   }
+
+  @Post("setupWebhooks")
+  setupWebhooks(): void {}
 }

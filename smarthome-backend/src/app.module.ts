@@ -16,10 +16,6 @@ export class AppModule implements OnModuleInit {
   constructor(private config: ConfigService) {}
 
   onModuleInit(): void {
-    try {
-      this.config.load();
-    } catch (error) {
-      this.logger.error(error);
-    }
+    this.config.loadAll();
   }
 }

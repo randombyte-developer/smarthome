@@ -12,14 +12,14 @@ export class DevicesService {
   constructor(private readonly config: ConfigService, private readonly tasmota: TasmotaService) {}
 
   getAll(): DeviceDto[] {
-    return this.config.devices.devices.flatMap((deviceConfig) => {
+    return this.config.devices.config.devices.flatMap((deviceConfig) => {
       const state = this.getState(deviceConfig.id);
       return [{ id: deviceConfig.id, type: deviceConfig.type, name: deviceConfig.name, state: state }];
     });
   }
 
   getState(deviceId: string): StateDto {
-    const deviceConfig = this.config.getDevice(deviceId);
+    const deviceConfig = this.config.devices.getDevice(deviceId);
 
     if (!(deviceId in this.states)) {
       this.logger.log(`Device ${deviceId} has no current state, setting it to default state ${deviceConfig.defaultState}`);
@@ -34,9 +34,9 @@ export class DevicesService {
   }
 
   async updateState(deviceId: string, stateId: string): Promise<void> {
-    const device = this.config.getDevice(deviceId);
+    const device = this.config.devices.getDevice(deviceId);
 
-    const state = this.config.getState(device, stateId);
+    const state = this.config.devices.getState(device, stateId);
     if (state === undefined) throw `Unkown state ${stateId} for device ${device.id}!`;
 
     this.logger.log(`Updating state of device ${deviceId} to ${stateId}`);
@@ -65,5 +65,13 @@ export class DevicesService {
       default:
         throw `Unkown device type ${device.type} for device ${device.id}!`;
     }
+  }
+
+  setupTasmotaRelaisWebhooks(): void {
+    this.config.devices.config.devices
+      .filter((device) => device.type == deviceTypes.tasmotaRelais)
+      .forEach((device) => {
+        this.tasmota.setupRelaisWebhook(device.address, device.id, this.config.general.config.selfUrl);
+      });
   }
 }
