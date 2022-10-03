@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { DeviceConfig, DeviceDto, deviceTypes, StateConfig, StateDto } from "shared";
 import { ConfigService } from "src/config/config.service";
+import { UnknownRecordException } from "src/exceptions/unknownRecord.exception";
 import { TasmotaService } from "src/tasmota/tasmota.service";
 
 @Injectable()
@@ -27,17 +28,14 @@ export class DevicesService {
     }
 
     const stateId = this.states[deviceId];
-    const state = deviceConfig.states.find((state) => state.id === stateId);
-    if (state === undefined) throw `State ${stateId} is not a state of device ${deviceId}!`;
+    const state = this.config.devices.getState(deviceConfig, stateId);
 
     return { id: state.id, name: state.name, imageUrl: state.imageUrl };
   }
 
-  async updateState(deviceId: string, stateId: string): Promise<void> {
+  async setState(deviceId: string, stateId: string): Promise<void> {
     const device = this.config.devices.getDevice(deviceId);
-
     const state = this.config.devices.getState(device, stateId);
-    if (state === undefined) throw `Unkown state ${stateId} for device ${device.id}!`;
 
     this.logger.log(`Updating state of device ${deviceId} to ${stateId}`);
 
@@ -46,10 +44,10 @@ export class DevicesService {
       return;
     }
 
-    const success = await this.updateStateInternal(device, state);
-
-    if (!success) {
-      this.logger.warn(`Can't update state of device ${deviceId} to ${stateId}!`);
+    try {
+      await this.updateStateInternal(device, state);
+    } catch (exception) {
+      this.logger.warn(`Can't update state of device ${deviceId} to ${stateId}: ${exception}`);
       return;
     }
 
@@ -57,21 +55,21 @@ export class DevicesService {
     this.states[deviceId] = stateId;
   }
 
-  private updateStateInternal(device: DeviceConfig, state: StateConfig): Promise<boolean> {
+  private async updateStateInternal(device: DeviceConfig, state: StateConfig): Promise<void> {
     switch (device.type) {
       case deviceTypes.tasmotaRelais:
-        return this.tasmota.sendPowerCommand(device.address, state.id);
+        await this.tasmota.sendPowerCommand(device.address, state.id);
+        break;
 
       default:
-        throw `Unkown device type ${device.type} for device ${device.id}!`;
+        throw `Unknown device type ${device.type} for device ${device.id}!`;
     }
   }
 
-  setupTasmotaRelaisWebhooks(): void {
-    this.config.devices.config.devices
-      .filter((device) => device.type == deviceTypes.tasmotaRelais)
-      .forEach((device) => {
-        this.tasmota.setupRelaisWebhook(device.address, device.id, this.config.general.config.selfUrl);
-      });
+  async setupTasmotaRelaisWebhooks(): Promise<void> {
+    const tasmotaDevices = this.config.devices.config.devices.filter((device) => device.type == deviceTypes.tasmotaRelais);
+    for (const device of tasmotaDevices) {
+      await this.tasmota.setupRelaisWebhook(device.address, device.id, this.config.general.config.selfUrl);
+    }
   }
 }

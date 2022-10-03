@@ -1,18 +1,18 @@
 import { HttpService } from "@nestjs/axios";
 import { Injectable } from "@nestjs/common";
 import { catchError, lastValueFrom, map, of } from "rxjs";
-import { deviceDtoSchema } from "shared";
+import { commonStateIds, Routes } from "shared";
 
 @Injectable()
 export class TasmotaService {
   constructor(private readonly http: HttpService) {}
 
-  sendPowerCommand(address: string, state: string): Promise<boolean> {
-    return this.sendCommand(address, `Power1 ${state}`);
+  async sendPowerCommand(address: string, state: string): Promise<void> {
+    return await this.sendCommand(address, `Power1 ${state}`);
   }
 
-  sendCommand(address: string, command: string): Promise<boolean> {
-    return lastValueFrom(
+  async sendCommand(address: string, command: string): Promise<void> {
+    const success = await lastValueFrom(
       this.http
         .get(`http://${address}/cm`, {
           params: {
@@ -24,17 +24,19 @@ export class TasmotaService {
           catchError(() => of(false)),
         ),
     );
+
+    if (!success) {
+      throw `Failed to send command to ${address}: ${command}`;
+    }
   }
 
-  setupRelaisWebhook(address: string, deviceId: string, callbackUrl: string): void {
-    this.sendCommand(
+  async setupRelaisWebhook(address: string, deviceId: string, callbackUrl: string): Promise<void> {
+    const offRoute = `/${Routes.devices}/${deviceId}/${Routes.state}/${commonStateIds.off}`;
+    const onRoute = `/${Routes.devices}/${deviceId}/${Routes.state}/${commonStateIds.on}`;
+
+    return await this.sendCommand(
       address,
-      `
-      Backlog Rule1 
-      ON Power1#State=0 DO WebSend [${callbackUrl}] /relais/${deviceId}/state/off ENDON 
-      ON Power1#State=1 DO WebSend [${callbackUrl}] /relais/${deviceId}/state/on ENDON; 
-      Rule1 1
-      `,
+      `Backlog Rule1 ON Power1#State=0 DO WebSend [${callbackUrl}] ${offRoute} ENDON ON Power1#State=1 DO WebSend [${callbackUrl}] ${onRoute} ENDON; Rule1 1`,
     );
   }
 }

@@ -1,6 +1,11 @@
 import { JTDSchemaType } from "ajv/dist/jtd";
 import { Identifiable } from "./identifiable";
 
+export const commonStateIds = {
+  on: "on",
+  off: "off",
+};
+
 export interface StateDto extends Identifiable {
   readonly name: string;
   readonly imageUrl: string;

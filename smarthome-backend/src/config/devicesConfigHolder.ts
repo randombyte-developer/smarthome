@@ -1,4 +1,5 @@
-import { DeviceConfig, DevicesConfig, devicesConfigSchema, deviceTypes, StateConfig } from "shared";
+import { commonStateIds, DeviceConfig, DevicesConfig, devicesConfigSchema, deviceTypes, StateConfig } from "shared";
+import { UnknownRecordException } from "src/exceptions/unknownRecord.exception";
 import { ConfigHolder } from "./configHolder";
 
 export class DevicesConfigHolder extends ConfigHolder<DevicesConfig> {
@@ -10,7 +11,7 @@ export class DevicesConfigHolder extends ConfigHolder<DevicesConfig> {
         id: "tasmota-1",
         type: deviceTypes.tasmotaRelais,
         name: "Tastmota Socket 1",
-        address: "192.168.2.21",
+        address: "192.168.2.24",
         states: [
           {
             id: "unknown",
@@ -23,6 +24,12 @@ export class DevicesConfigHolder extends ConfigHolder<DevicesConfig> {
             name: "An",
             toggledId: "off",
             imageUrl: "/static/images/light-on.png",
+          },
+          {
+            id: "off",
+            name: "Aus",
+            toggledId: "on",
+            imageUrl: "/static/images/light-off.png",
           },
         ],
         defaultState: "unknown",
@@ -46,7 +53,12 @@ export class DevicesConfigHolder extends ConfigHolder<DevicesConfig> {
       if (!stateIdsAreUnique) return `State IDs for device ${device.id} are not unique!`;
 
       const defaultStateExists = stateIds.includes(device.defaultState);
-      if (!defaultStateExists) return `The default state ${device.defaultState} of device ${device.id} doesn't exist!`;
+      if (!defaultStateExists) return `Default state ${device.defaultState} of device ${device.id} doesn't exist!`;
+
+      if (device.type === deviceTypes.tasmotaRelais) {
+        if (!stateIds.includes(commonStateIds.on)) return `State ${commonStateIds.on} of devicc ${device.id} doesn't exist!`;
+        if (!stateIds.includes(commonStateIds.off)) return `State ${commonStateIds.off} of devicc ${device.id} doesn't exist!`;
+      }
     }
 
     return null;
@@ -54,11 +66,13 @@ export class DevicesConfigHolder extends ConfigHolder<DevicesConfig> {
 
   getDevice(id: string): DeviceConfig {
     const device = this.config.devices.find((device) => device.id === id);
-    if (device === undefined) throw `Unkown device ${id}!`;
+    if (device === undefined) throw new UnknownRecordException("device", id);
     return device;
   }
 
-  getState(device: DeviceConfig, id: string): StateConfig | undefined {
-    return device.states.find((state) => state.id === id);
+  getState(device: DeviceConfig, id: string): StateConfig {
+    const state = device.states.find((state) => state.id === id);
+    if (state === undefined) throw new UnknownRecordException("state", id, "device", device.id);
+    return state;
   }
 }

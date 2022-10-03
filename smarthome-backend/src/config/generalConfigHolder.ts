@@ -5,7 +5,7 @@ export class GeneralConfigHolder extends ConfigHolder<GeneralConfig> {
   protected configSchema = generalConfigSchema;
 
   protected defaultConfig = {
-    selfUrl: "192.168.2.10",
+    selfUrl: "192.168.2.71:3000",
   };
 
   protected check(config: GeneralConfig): string | null {
