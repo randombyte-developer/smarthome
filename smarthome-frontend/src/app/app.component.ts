@@ -1,5 +1,5 @@
 import { Component } from "@angular/core";
-import { Device } from "shared";
+import { DevicesService } from "./devices.service";
 
 @Component({
   selector: "app-root",
@@ -9,7 +9,9 @@ import { Device } from "shared";
 export class AppComponent {
   title = "smarthome-frontend";
 
+  constructor(private readonly devices: DevicesService) {}
+
   ngOnInit() {
-    new Device("");
+    ("");
   }
 }
