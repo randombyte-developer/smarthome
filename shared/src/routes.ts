@@ -3,4 +3,5 @@ export class Routes {
 
   static readonly state = "state";
   static readonly setupWebhooks = "setupWebhooks";
+  static readonly toggle = "toggle";
 }

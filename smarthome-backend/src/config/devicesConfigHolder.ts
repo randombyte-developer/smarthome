@@ -56,8 +56,14 @@ export class DevicesConfigHolder extends ConfigHolder<DevicesConfig> {
       if (!defaultStateExists) return `Default state ${device.defaultState} of device ${device.id} doesn't exist!`;
 
       if (device.type === deviceTypes.tasmotaRelais) {
-        if (!stateIds.includes(commonStateIds.on)) return `State ${commonStateIds.on} of devicc ${device.id} doesn't exist!`;
-        if (!stateIds.includes(commonStateIds.off)) return `State ${commonStateIds.off} of devicc ${device.id} doesn't exist!`;
+        if (!stateIds.includes(commonStateIds.on)) return `State ${commonStateIds.on} of device ${device.id} doesn't exist!`;
+        if (!stateIds.includes(commonStateIds.off)) return `State ${commonStateIds.off} of device ${device.id} doesn't exist!`;
+      }
+
+      for (const state of device.states) {
+        if (state.toggledId !== null && !stateIds.includes(state.id)) {
+          return `Toggled state ${state.toggledId} of state ${state.id} of device ${device.id} doesn't exist!`;
+        }
       }
     }
 

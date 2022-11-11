@@ -21,7 +21,7 @@ export const stateDtoSchema: JTDSchemaType<StateDto> = {
 
 export interface StateConfig extends Identifiable {
   readonly name: string;
-  readonly toggledId: string;
+  readonly toggledId: string | null;
   readonly imageUrl: string;
 }
 
@@ -29,7 +29,7 @@ export const stateConfigSchema: JTDSchemaType<StateConfig> = {
   properties: {
     id: { type: "string" },
     name: { type: "string" },
-    toggledId: { type: "string" },
+    toggledId: { type: "string", nullable: true },
     imageUrl: { type: "string" },
   },
 };
